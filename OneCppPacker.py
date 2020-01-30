@@ -12,7 +12,6 @@ class FileInfo:
 
 class Packer:
     def __init__(self):
-        self.systemIncludes = set()
         self.handledFiles = {}
         self.pendingFiles = {}
         self.collectedFiles = set()
@@ -52,7 +51,6 @@ class Packer:
 
     def write_result_to_file(self, outFileName, additionalInfo=False):
         with Path(outFileName).open('w') as file:
-            file.writelines(self.collect_system_includes_lines())
             file.writelines(self.collect_all_files_lines())
             if additionalInfo:
                 file.write("\n/* Handled files:")
@@ -116,15 +114,15 @@ class Packer:
         fileInfo.lines = [line for line in fileInfo.lines if line]
         self.handledFiles[fileInfo.fileName] = fileInfo
 
-    def handle_include_file(self, fileInfo, line):
+    def get_include_file_name(self, line):
         if "#include" not in line:
-            return False
+            return (False, "", False)
         isSystem = False
         start = line.find('\"')
         if start < 0:
             start = line.find('<')
             if start < 0:
-                return False
+                return (False, "", False)
             else:
                 isSystem = True
         end = -1
@@ -133,17 +131,17 @@ class Packer:
         else:
             end = line.find('\"', start + 1)
         fileName = line[start+1:end]
-        if isSystem:
-            self.systemIncludes.add(fileName)
-        else:
+        return (True, fileName, isSystem)
+
+    def handle_include_file(self, fileInfo, line):
+        isFound, fileName, isSystem = self.get_include_file_name(line)
+        if isFound and not isSystem:
             fileName = self.find_including_file_name(fileInfo.fileName, fileName)
             if fileName != "":
                 fileInfo.includedFileNames.append(fileName)
                 self.add_pending_file(fileName)
-        return True
-
-    def collect_system_includes_lines(self):
-        return ["#include <{}>\n".format(fileName) for fileName in self.systemIncludes]
+            return True
+        return False
 
     def collect_all_files_lines(self):
         self.collectedFiles = set()
@@ -153,6 +151,7 @@ class Packer:
             cppFileName = fileInfo.cppFileName
             cppFilesLines.extend(self.collect_files_lines(cppFileName))
         filesLines.extend(cppFilesLines)
+        self.remove_dublicated_includes(filesLines)
         return filesLines
 
     def collect_files_lines(self, fileName):
@@ -169,6 +168,17 @@ class Packer:
         if len(lines) > 0:
             lines[-1] += "\n"
         return lines
+
+    def remove_dublicated_includes(self, lines):
+        systemIncludes = set()
+        for index, line in enumerate(lines):
+            isFound, fileName, isSystem = self.get_include_file_name(line)
+            if isFound and isSystem:
+                if fileName in systemIncludes:
+                    line = ""
+                else:
+                    systemIncludes.add(fileName)
+            lines[index] = line
 
 def main():
     ap = argparse.ArgumentParser()    
