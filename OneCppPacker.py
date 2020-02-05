@@ -72,7 +72,7 @@ class Packer:
         if(fileInfo.fileName.endswith(".h")):
             fileInfo.cppFileName = fileInfo.fileName[:-2] + ".cpp"
             self.add_pending_file(fileInfo.cppFileName)
-        
+        isLastLineHasNewLine = False
         isLastLineMultilinePreproc = False
         isMultiLineCommentStarted = False
         for index, line in enumerate(fileInfo.lines):
@@ -102,9 +102,13 @@ class Packer:
                     if commentPos > -1:
                         line = line[:commentPos]
                     # handling of preproc
-                    addNewLineChar = line.startswith('#') or line.endswith('\\') or isLastLineMultilinePreproc
-                    isLastLineMultilinePreproc = line.endswith('\\')
-                    if addNewLineChar:
+                    shouldStartWithNewLine = line.startswith('#')
+                    shuoldAddNewLine = line.endswith('\\') or line.startswith('#')
+                    if not isLastLineHasNewLine and shouldStartWithNewLine:
+                        line = '\n' + line
+                    isLastLineHasNewLine = False
+                    if shuoldAddNewLine:
+                        isLastLineHasNewLine = True
                         line += "\n"
                 # handle includes
                 if self.handle_include_file(fileInfo, line):

@@ -27,7 +27,12 @@
 //int lolkek() { return -1; } // [Enable]
 
 int l = 0;
-
+#ifdef DEBUG
+void print_debug(char const* const msg)
+{
+    printf(msg);
+}
+#endif // DEBUG
 int main(/*args*/)
 {
     return 0;
